@@ -318,6 +318,113 @@ flash_gaia()
 	return $?
 }
 
+flash_rpi2()
+{
+	echo Notice: This script will create partitions and
+	echo flash images on the SD if the host machine is Linux.
+	echo On Mac will flash images only. You have to create
+	echo the partitions on the SD manually if the host
+	echo machine is Mac OS X.
+
+	DRIVE=$1
+
+	if [ -z "${PARTITION_NAME}" ]; then
+		echo You must specify a SD card drive
+	fi
+
+	sudo dd if=/dev/zero of=$DRIVE bs=1024
+
+	sed -e 's/\t\([\+0-9a-zA-Z]*\)[ \t].*/\1/' << EOF | fdisk ${DRIVE}
+	  o
+	  n
+	  p
+	  1
+
+	  +48M
+	  n
+	  p
+	  2
+
+	  +537M
+	  n
+	  p
+	  3
+
+	  +128M
+	  n
+	  p
+	  4
+
+
+	  a
+	  1
+	  p
+	  w
+	  q
+	EOF
+
+	mkfs.vfat -F 32 -n "boot" ${DRIVE}p1
+	mkfs.ext4 -L "system" ${DRIVE}p2
+	mkfs.ext4 -L "cache" ${DRIVE}p3
+	mkfs.ext4 -L "userdata" ${DRIVE}p4
+
+	if [ -e "out/target/product/$DEVICE/boot.img" ]; then
+	  case `uname` in
+	  "Darwin")
+	  	sudo dd if=out/target/product/${DEVICE}/boot.img of=/dev/${DRIVE}s1 bs=1m
+	  	;;
+	  "Linux")
+	  	sudo dd if=out/target/product/${DEVICE}/boot.img of=/dev/${DRIVE}p1 bs=1M
+	  	;;
+	  *)
+	  	echo Unsupported platform: `uname`
+	  	exit -1
+	  esac
+	fi
+
+	if [ -e "out/target/product/$DEVICE/system.img" ]; then
+	  case `uname` in
+	  "Darwin")
+	  	sudo dd if=out/target/product/${DEVICE}/system.img of=/dev/${DRIVE}s2 bs=1m
+	  	;;
+	  "Linux")
+	  	sudo dd if=out/target/product/${DEVICE}/system.img of=/dev/${DRIVE}p2 bs=1M
+	  	;;
+	  *)
+	  	echo Unsupported platform: `uname`
+	  	exit -1
+	  esac
+	fi
+
+	if [ -e "out/target/product/$DEVICE/cache.img" ]; then
+	  case `uname` in
+	  "Darwin")
+	  	sudo dd if=out/target/product/${DEVICE}/cache.img of=/dev/${DRIVE}s3 bs=1m
+	  	;;
+	  "Linux")
+	  	sudo dd if=out/target/product/${DEVICE}/cache.img of=/dev/${DRIVE}p3 bs=1M
+	  	;;
+	  *)
+	  	echo Unsupported platform: `uname`
+	  	exit -1
+	  esac
+	fi
+
+	if [ -e "out/target/product/$DEVICE/userdata.img" ]; then
+	  case `uname` in
+	  "Darwin")
+	  	sudo dd if=out/target/product/${DEVICE}/userdata.img of=/dev/${DRIVE}s4 bs=1m
+	  	;;
+	  "Linux")
+	  	sudo dd if=out/target/product/${DEVICE}/userdata.img of=/dev/${DRIVE}p4 bs=1M
+	  	;;
+	  *)
+	  	echo Unsupported platform: `uname`
+	  	exit -1
+	  esac
+	fi
+}
+
 while [ $# -gt 0 ]; do
 	case "$1" in
 	"-s")
@@ -408,6 +515,10 @@ case "$DEVICE" in
 
 "galaxys2")
 	flash_heimdall $PROJECT
+	;;
+
+"rpi2b-l")
+	flash_rpi2
 	;;
 
 *)
